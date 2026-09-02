@@ -49,7 +49,7 @@ Paquetes: `next-auth@beta` (línea v5; `next-auth@latest` sigue siendo v4), `@au
 | `src/middleware.ts` | Protege `/dashboard/*` importando solo `auth.config`. |
 | `src/types/next-auth.d.ts` | `session.user.id`. |
 
-Sesión: **JWT** para no consultar la DB en Edge. El adapter sigue persistiendo usuarios/cuentas OAuth en PostgreSQL.
+Sesión: **JWT** para no consultar la DB en Edge. El adapter de Prisma se activa cuando `DATABASE_URL` no es localhost (p. ej. Neon en Vercel) o si pones `AUTH_ADAPTER=true`. En local, sin PostgreSQL, el login con GitHub sigue funcionando solo con JWT.
 
 ### Secretos
 

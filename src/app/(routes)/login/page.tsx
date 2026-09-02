@@ -3,12 +3,33 @@ import { isGitHubOAuthConfigured } from "@/lib/github-oauth";
 
 export const dynamic = "force-dynamic";
 
-export default function LoginPage() {
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  Configuration:
+    "Auth.js no pudo completar el login. En local suele ser porque no hay PostgreSQL; el login con GitHub ahora usa JWT sin base de datos.",
+  AccessDenied: "GitHub rechazó el acceso.",
+  Verification: "El enlace de verificación no es válido o expiró.",
+  Default: "No se pudo iniciar sesión. Inténtalo de nuevo.",
+};
+
+type LoginPageProps = {
+  searchParams: Promise<{ error?: string }>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { error } = await searchParams;
   const githubOAuthConfigured = isGitHubOAuthConfigured();
+  const errorMessage = error
+    ? (AUTH_ERROR_MESSAGES[error] ?? AUTH_ERROR_MESSAGES.Default)
+    : null;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 px-6">
       <h1 className="text-2xl font-semibold">Iniciar sesión</h1>
+      {errorMessage ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+          {errorMessage}
+        </p>
+      ) : null}
       {githubOAuthConfigured ? (
         <>
           <p className="text-zinc-600 dark:text-zinc-400">
