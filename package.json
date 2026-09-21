@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
+    "@hookform/resolvers": "^5.9.1",
     "@prisma/client": "^6.19.3",
     "clsx": "^2.1.1",
     "lucide-react": "^1.38.0",
@@ -36,6 +37,7 @@
     "next-auth": "^5.0.0-beta.32",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-hook-form": "^7.88.0",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.5.4"
   },

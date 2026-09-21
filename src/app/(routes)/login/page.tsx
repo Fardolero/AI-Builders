@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { AuthButtons } from "@/components/shared/auth-buttons";
+import { ROUTES } from "@/constants/routes";
 import { isGitHubOAuthConfigured } from "@/lib/github-oauth";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +67,15 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </p>
         </div>
       )}
+      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        ¿No tienes cuenta?{" "}
+        <Link
+          href={ROUTES.register}
+          className="font-medium text-zinc-900 underline-offset-4 hover:underline dark:text-zinc-100"
+        >
+          Crear cuenta
+        </Link>
+      </p>
     </main>
   );
 }
