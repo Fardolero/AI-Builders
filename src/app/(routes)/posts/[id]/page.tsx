@@ -7,7 +7,9 @@ import { SavePostButton } from "@/components/trocar/save-post-button";
 import { TrocarButton } from "@/components/trocar/button";
 import { TrocarShell } from "@/components/trocar/shell";
 import { MEETING_POINTS, ROUTES } from "@/constants/routes";
+import { loadContactConfirmation } from "@/lib/trocar/contact-flags";
 import { getCurrentUserAndProfile } from "@/lib/trocar/profile";
+import { loadRevealedRatingsForUser } from "@/lib/trocar/revealed-ratings";
 
 type PostDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -20,7 +22,7 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
   const { data: post } = await supabase
     .from("posts")
     .select(
-      "id, kind, intent, title, description, looking_for, barrio, status, created_at, author_id, meeting_point_id, image_url, category, condition, author:profiles!author_id(full_name, barrio, bio, onboarding_completed_at)",
+      "id, kind, intent, title, description, looking_for, barrio, status, created_at, author_id, meeting_point_id, image_url, category, condition, author:profiles!author_id(full_name, barrio, bio)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -55,15 +57,14 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
     saved = Boolean(savedRow);
   }
 
-  const { data: authorRatings } = await supabase
-    .from("ratings")
-    .select("stars")
-    .eq("to_user_id", post.author_id);
-
-  const ratingCount = authorRatings?.length ?? 0;
+  const [{ ratings: authorRatings }, contactFlags] = await Promise.all([
+    loadRevealedRatingsForUser(supabase, post.author_id, 200),
+    loadContactConfirmation(supabase, post.author_id),
+  ]);
+  const ratingCount = authorRatings.length;
   const ratingAvg =
     ratingCount > 0
-      ? authorRatings!.reduce((sum, row) => sum + row.stars, 0) / ratingCount
+      ? authorRatings.reduce((sum, row) => sum + row.stars, 0) / ratingCount
       : null;
 
   return (
@@ -173,9 +174,7 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
                 Aún sin calificaciones suficientes
               </span>
             )}
-            <ContactConfirmedBadge
-              emailConfirmed={Boolean(author?.onboarding_completed_at)}
-            />
+            <ContactConfirmedBadge {...contactFlags} />
           </div>
           {author?.bio ? (
             <p className="text-sm text-trocar-mute">{author.bio}</p>

@@ -1,3 +1,15 @@
+export function contactConfirmationFlags(
+  source: {
+    email_confirmed_at?: string | null;
+    phone_confirmed_at?: string | null;
+  } | null | undefined,
+) {
+  return {
+    emailConfirmed: Boolean(source?.email_confirmed_at),
+    phoneConfirmed: Boolean(source?.phone_confirmed_at),
+  };
+}
+
 export function ContactConfirmedBadge({
   emailConfirmed,
   phoneConfirmed,

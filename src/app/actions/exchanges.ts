@@ -102,17 +102,30 @@ export async function proposeExchangeAction(
     redirect(ROUTES.exchange(existing.id));
   }
 
-  const { data: exchange, error } = await supabase
+  const exchangeInsert = {
+    post_id: post.id,
+    proposer_id: user.id,
+    owner_id: post.author_id,
+    status: "pending" as const,
+    offer_text: offerText,
+  };
+
+  let { data: exchange, error } = await supabase
     .from("exchanges")
     .insert({
-      post_id: post.id,
-      proposer_id: user.id,
-      owner_id: post.author_id,
-      status: "pending",
-      offer_text: offerText,
+      ...exchangeInsert,
+      offer_post_id: parsed.data.offerPostId ?? null,
     })
     .select("id")
     .single();
+
+  if (error && /offer_post_id/i.test(error.message)) {
+    ({ data: exchange, error } = await supabase
+      .from("exchanges")
+      .insert(exchangeInsert)
+      .select("id")
+      .single());
+  }
 
   if (error || !exchange) {
     return { error: error?.message ?? "No se pudo crear la propuesta." };
@@ -268,16 +281,28 @@ export async function rejectExchangeAction(
     return { error: "Solo el dueño puede rechazar." };
   }
 
-  const { error } = await supabase
+  if (exchange.status !== "pending" && exchange.status !== "countered") {
+    return { error: "Esta propuesta ya no se puede rechazar." };
+  }
+
+  const { data: rejected, error } = await supabase
     .from("exchanges")
     .update({
       status: "rejected",
       updated_at: new Date().toISOString(),
     })
-    .eq("id", exchangeId);
+    .eq("id", exchangeId)
+    .eq("owner_id", user.id)
+    .in("status", ["pending", "countered"])
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     return { error: error.message };
+  }
+
+  if (!rejected) {
+    return { error: "Esta propuesta ya no se puede rechazar." };
   }
 
   await notify(
@@ -427,6 +452,10 @@ export async function confirmExchangeAction(
     return { error: "Intercambio no encontrado." };
   }
 
+  if (exchange.status === "completed") {
+    redirect(ROUTES.exchangeRate(exchangeId));
+  }
+
   if (exchange.status !== "coordinating" && exchange.status !== "accepted") {
     return { error: "Todavía no se puede confirmar." };
   }
@@ -437,44 +466,90 @@ export async function confirmExchangeAction(
     return { error: "No participás de este intercambio." };
   }
 
-  const nextProposerConfirmed = isProposer
-    ? new Date().toISOString()
-    : exchange.proposer_confirmed_at;
-  const nextOwnerConfirmed = isOwner
-    ? new Date().toISOString()
-    : exchange.owner_confirmed_at;
-  const bothConfirmed = Boolean(nextProposerConfirmed) && Boolean(nextOwnerConfirmed);
+  const now = new Date().toISOString();
+  // Write only this party's timestamp. A stale snapshot of the other side
+  // would null it out when both people confirm at the same time.
+  const confirmationPatch = isProposer
+    ? { proposer_confirmed_at: now, updated_at: now, status: "coordinating" as const }
+    : { owner_confirmed_at: now, updated_at: now, status: "coordinating" as const };
 
-  const { error } = await supabase
+  const { data: confirmed, error } = await supabase
     .from("exchanges")
-    .update({
-      updated_at: new Date().toISOString(),
-      status: bothConfirmed ? "completed" : "coordinating",
-      proposer_confirmed_at: nextProposerConfirmed,
-      owner_confirmed_at: nextOwnerConfirmed,
-    })
-    .eq("id", exchangeId);
+    .update(confirmationPatch)
+    .eq("id", exchangeId)
+    .in("status", ["coordinating", "accepted"])
+    .select("*")
+    .maybeSingle();
 
   if (error) {
     return { error: error.message };
   }
 
+  if (!confirmed) {
+    const { data: current } = await supabase
+      .from("exchanges")
+      .select("status")
+      .eq("id", exchangeId)
+      .maybeSingle();
+
+    if (current?.status === "completed") {
+      revalidatePath(ROUTES.exchange(exchangeId));
+      redirect(ROUTES.exchangeRate(exchangeId));
+    }
+
+    return { error: "Todavía no se puede confirmar." };
+  }
+
+  const bothConfirmed =
+    Boolean(confirmed.proposer_confirmed_at) &&
+    Boolean(confirmed.owner_confirmed_at);
+
   if (bothConfirmed) {
+    const { data: completed, error: completeError } = await supabase
+      .from("exchanges")
+      .update({
+        status: "completed",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", exchangeId)
+      .in("status", ["coordinating", "accepted"])
+      .select("*")
+      .maybeSingle();
+
+    if (completeError) {
+      return { error: completeError.message };
+    }
+
+    if (!completed) {
+      revalidatePath(ROUTES.exchange(exchangeId));
+      redirect(ROUTES.exchangeRate(exchangeId));
+    }
+
     await supabase.rpc("award_exchange_credits", {
       p_exchange_id: exchangeId,
     });
 
-    await supabase
-      .from("posts")
-      .update({
-        status: "intercambiada",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", exchange.post_id);
+    const offerPostId =
+      "offer_post_id" in completed && typeof completed.offer_post_id === "string"
+        ? completed.offer_post_id
+        : null;
+    const postIds = [completed.post_id, offerPostId].filter(
+      (postId): postId is string => Boolean(postId),
+    );
+
+    if (postIds.length > 0) {
+      await supabase
+        .from("posts")
+        .update({
+          status: "intercambiada",
+          updated_at: new Date().toISOString(),
+        })
+        .in("id", postIds);
+    }
 
     await notify(
       supabase,
-      exchange.proposer_id,
+      confirmed.proposer_id,
       "completed",
       "Trueque concretado",
       "Sumaste +10 Créditos Vecinales. Calificá al vecino.",
@@ -482,7 +557,7 @@ export async function confirmExchangeAction(
     );
     await notify(
       supabase,
-      exchange.owner_id,
+      confirmed.owner_id,
       "completed",
       "Trueque concretado",
       "Sumaste +10 Créditos Vecinales. Calificá al vecino.",
@@ -490,6 +565,7 @@ export async function confirmExchangeAction(
     );
 
     revalidatePath(ROUTES.exchange(exchangeId));
+    revalidatePath(ROUTES.feed);
     redirect(ROUTES.exchangeRate(exchangeId));
   }
 
@@ -626,7 +702,7 @@ export async function submitRatingAction(
     "rating",
     "Nueva calificación",
     `Te calificaron con ${parsed.data.stars} estrellas.`,
-    ROUTES.profilePublic(user.id),
+    ROUTES.profilePublic(toUserId),
   );
 
   revalidatePath(ROUTES.profile);

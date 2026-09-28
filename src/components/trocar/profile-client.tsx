@@ -39,6 +39,9 @@ export function ProfileClient({
   posts,
   ratings,
   interests,
+  emailConfirmed,
+  phoneConfirmed,
+  emptyReviewsLabel,
 }: {
   fullName: string;
   barrio: string | null;
@@ -52,6 +55,9 @@ export function ProfileClient({
   posts: OwnPost[];
   ratings: Rating[];
   interests: string[];
+  emailConfirmed: boolean;
+  phoneConfirmed: boolean;
+  emptyReviewsLabel: string;
 }) {
   const [tab, setTab] = useState<"posts" | "reviews" | "interests">("posts");
 
@@ -70,7 +76,10 @@ export function ProfileClient({
           </h1>
           <p className="text-sm text-trocar-mute">{barrio ?? "Sin barrio"}</p>
           <div className="mt-2 flex justify-center">
-            <ContactConfirmedBadge emailConfirmed phoneConfirmed={false} />
+            <ContactConfirmedBadge
+              emailConfirmed={emailConfirmed}
+              phoneConfirmed={phoneConfirmed}
+            />
           </div>
           {bio ? <p className="mt-2 text-sm text-trocar-paper">{bio}</p> : null}
         </div>
@@ -123,7 +132,7 @@ export function ProfileClient({
       ) : tab === "reviews" ? (
         ratings.length === 0 ? (
           <p className="trocar-card px-4 py-8 text-center text-sm text-trocar-mute">
-            Todavía no tenés reseñas.
+            {emptyReviewsLabel}
           </p>
         ) : (
           <ul className="space-y-3">

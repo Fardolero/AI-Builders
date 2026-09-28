@@ -9,11 +9,9 @@ import { AvatarBadge, StatPill } from "@/components/trocar/ui-bits";
 import { ROUTES } from "@/constants/routes";
 import { BadgeRow, deriveBadges, isTopNeighbor } from "@/lib/trocar/badges";
 import { getCurrentUserAndProfile } from "@/lib/trocar/profile";
+import { loadContactConfirmation } from "@/lib/trocar/contact-flags";
 import { scoreExchangeProbability } from "@/lib/trocar/match-score";
-import {
-  filterRevealedRatings,
-  type RatingRow,
-} from "@/lib/trocar/rating-reveal";
+import { loadRevealedRatingsForUser } from "@/lib/trocar/revealed-ratings";
 
 type PublicProfilePageProps = {
   params: Promise<{ id: string }>;
@@ -28,7 +26,7 @@ export default async function PublicProfilePage({
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "id, full_name, barrio, bio, credits_balance, avatar_url, interests, onboarding_completed_at",
+      "id, full_name, barrio, bio, credits_balance, avatar_url, interests",
     )
     .eq("id", id)
     .maybeSingle();
@@ -37,16 +35,10 @@ export default async function PublicProfilePage({
     notFound();
   }
 
-  const [{ data: ratingsRaw }, { data: posts }, { count: exchangeCount }] =
+  const [{ ratings }, contactFlags, { data: posts }, { count: exchangeCount }] =
     await Promise.all([
-      supabase
-        .from("ratings")
-        .select(
-          "id, stars, comment, created_at, exchange_id, from_user_id, to_user_id, from_user:profiles!from_user_id(full_name)",
-        )
-        .eq("to_user_id", id)
-        .order("created_at", { ascending: false })
-        .limit(40),
+      loadRevealedRatingsForUser(supabase, id, 40),
+      loadContactConfirmation(supabase, id),
       supabase
         .from("posts")
         .select(
@@ -62,33 +54,6 @@ export default async function PublicProfilePage({
         .eq("status", "completed")
         .or(`proposer_id.eq.${id},owner_id.eq.${id}`),
     ]);
-
-  const ratingsForReveal: RatingRow[] = (ratingsRaw ?? []).map((item) => ({
-    id: item.id,
-    stars: item.stars,
-    comment: item.comment,
-    created_at: item.created_at,
-    exchange_id: item.exchange_id,
-    from_user_id: item.from_user_id,
-    to_user_id: item.to_user_id,
-  }));
-
-  const exchangeIds = [...new Set(ratingsForReveal.map((r) => r.exchange_id))];
-  let allExchangeRatings: RatingRow[] = ratingsForReveal;
-  if (exchangeIds.length > 0) {
-    const { data: siblings } = await supabase
-      .from("ratings")
-      .select(
-        "id, stars, comment, created_at, exchange_id, from_user_id, to_user_id",
-      )
-      .in("exchange_id", exchangeIds);
-    allExchangeRatings = (siblings ?? []) as RatingRow[];
-  }
-
-  const revealedIds = new Set(
-    filterRevealedRatings(allExchangeRatings).map((r) => r.id),
-  );
-  const ratings = (ratingsRaw ?? []).filter((item) => revealedIds.has(item.id));
 
   let viewerPosts: { title: string; looking_for: string }[] = [];
   if (user) {
@@ -151,9 +116,7 @@ export default async function PublicProfilePage({
                 : ""}
             </p>
             <div className="mt-2 flex justify-center">
-              <ContactConfirmedBadge
-                emailConfirmed={Boolean(profile.onboarding_completed_at)}
-              />
+              <ContactConfirmedBadge {...contactFlags} />
             </div>
             {profile.bio ? (
               <p className="mt-2 text-sm text-trocar-paper">{profile.bio}</p>
@@ -224,16 +187,13 @@ export default async function PublicProfilePage({
           ) : (
             <ul className="space-y-2">
               {ratings.map((item, index) => {
-                const from = Array.isArray(item.from_user)
-                  ? item.from_user[0]
-                  : item.from_user;
                 return (
                   <li
                     key={`${item.created_at}-${index}`}
                     className="trocar-card p-3 text-sm"
                   >
                     <p className="font-semibold text-trocar-paper">
-                      {from?.full_name ?? "Vecino"} · {"★".repeat(item.stars)}
+                      {item.from_name ?? "Vecino"} · {"★".repeat(item.stars)}
                     </p>
                     {item.comment ? (
                       <p className="mt-1 text-trocar-mute">{item.comment}</p>
