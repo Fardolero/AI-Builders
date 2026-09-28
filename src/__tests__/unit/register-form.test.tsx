@@ -1,12 +1,17 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RegisterForm } from "@/components/auth/register-form";
-import { readRegisteredUsers } from "@/lib/register-storage";
+
+const signUpAction = vi.fn();
+
+vi.mock("@/app/actions/auth", () => ({
+  signUpAction: (...args: unknown[]) => signUpAction(...args),
+}));
 
 describe("RegisterForm", () => {
   beforeEach(() => {
-    window.localStorage.clear();
+    signUpAction.mockReset();
   });
 
   it("mantiene el botón deshabilitado hasta que el formulario es válido", async () => {
@@ -24,7 +29,7 @@ describe("RegisterForm", () => {
 
     await user.click(
       screen.getByLabelText(
-        /Acepto los términos y condiciones/i,
+        /Acepto los términos/i,
       ),
     );
 
@@ -33,7 +38,12 @@ describe("RegisterForm", () => {
     });
   });
 
-  it("guarda el usuario, muestra confirmación y limpia los campos", async () => {
+  it("crea la cuenta en Supabase, muestra confirmación y limpia los campos", async () => {
+    signUpAction.mockResolvedValue({
+      error: null,
+      success: "Cuenta creada. Revisa tu correo para confirmar el registro e inicia sesión.",
+    });
+
     const user = userEvent.setup();
     render(<RegisterForm />);
 
@@ -41,22 +51,21 @@ describe("RegisterForm", () => {
     await user.type(screen.getByLabelText("Correo electrónico"), "ada@example.com");
     await user.type(screen.getByLabelText("Contraseña"), "Secret1!");
     await user.type(screen.getByLabelText("Confirmar contraseña"), "Secret1!");
-    await user.click(screen.getByLabelText(/Acepto los términos y condiciones/i));
+    await user.click(screen.getByLabelText(/Acepto los términos/i));
     await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
 
-    expect(screen.getByRole("button", { name: /Guardando/i })).toBeDisabled();
-
     expect(
-      await screen.findByRole("status", undefined, { timeout: 2_000 }),
+      await screen.findByRole("status"),
     ).toHaveTextContent(/Cuenta creada/i);
 
     expect(screen.getByLabelText("Nombre completo")).toHaveValue("");
     expect(screen.getByLabelText("Correo electrónico")).toHaveValue("");
-    expect(readRegisteredUsers()).toEqual([
-      expect.objectContaining({
-        fullName: "Ada Lovelace",
-        email: "ada@example.com",
-      }),
-    ]);
+    expect(signUpAction).toHaveBeenCalledWith({
+      fullName: "Ada Lovelace",
+      email: "ada@example.com",
+      password: "Secret1!",
+      confirmPassword: "Secret1!",
+      acceptTerms: true,
+    });
   });
 });
