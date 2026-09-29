@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bookmark,
+  Home,
   MessageCircle,
   Plus,
-  Home,
   UserRound,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -29,8 +30,14 @@ const TABS = [
   { href: ROUTES.feed, label: "Inicio", icon: Home },
   { href: ROUTES.exchanges, label: "Chats", icon: MessageCircle },
   { href: ROUTES.postsNew, label: "Publicar", icon: Plus, prominent: true },
+  { href: ROUTES.saved, label: "Guardados", icon: Bookmark },
   { href: ROUTES.profile, label: "Perfil", icon: UserRound },
 ] as const;
+
+function isTabActive(pathname: string, href: string) {
+  if (href === ROUTES.feed) return pathname === href;
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function TrocarShell({
   children,
@@ -55,7 +62,7 @@ export function TrocarShell({
         )}
       >
         {showNav ? (
-          <header className="trocar-header px-5 pt-6 pb-14 text-white">
+          <header className="trocar-header trocar-grain px-5 pt-6 pb-14 text-white">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 {greeting || title ? (
@@ -87,7 +94,7 @@ export function TrocarShell({
                 {showTabs ? (
                   <Link
                     href={profileHref}
-                    className="inline-flex size-11 items-center justify-center rounded-full bg-white/15 text-sm font-bold"
+                    className="trocar-glass trocar-grain relative inline-flex size-11 items-center justify-center rounded-full text-sm font-bold text-white"
                     aria-label="Perfil"
                   >
                     {profileInitials ? (
@@ -115,36 +122,40 @@ export function TrocarShell({
         </main>
 
         {showTabs ? (
-          <nav className="fixed bottom-4 left-1/2 z-20 flex w-[min(42rem,calc(100%-2rem))] -translate-x-1/2 items-end justify-between rounded-full bg-trocar-ink px-2 py-2 text-white shadow-lg lg:w-[min(48rem,calc(100%-2rem))]">
+          <nav
+            aria-label="Navegación principal"
+            className="trocar-glass trocar-grain fixed bottom-4 left-1/2 z-20 grid w-[min(42rem,calc(100%-2rem))] -translate-x-1/2 grid-cols-5 items-end rounded-full px-1.5 py-2 text-white lg:w-[min(48rem,calc(100%-2rem))]"
+          >
             {TABS.map((tab) => {
-              const active =
-                pathname === tab.href ||
-                (tab.href !== ROUTES.feed && pathname.startsWith(tab.href));
+              const active = isTabActive(pathname, tab.href);
               const Icon = tab.icon;
-              if ("prominent" in tab && tab.prominent) {
-                return (
-                  <Link
-                    key={tab.href}
-                    href={tab.href}
-                    aria-label={tab.label}
-                    className="-mt-5 inline-flex size-14 items-center justify-center rounded-full bg-trocar-mint text-trocar-ink shadow-lg"
-                  >
-                    <Icon className="size-6" aria-hidden />
-                  </Link>
-                );
-              }
+              const prominent = "prominent" in tab && tab.prominent;
               return (
                 <Link
                   key={tab.href}
                   href={tab.href}
                   aria-current={active ? "page" : undefined}
+                  aria-label={prominent ? tab.label : undefined}
                   className={cn(
-                    "flex flex-1 flex-col items-center gap-0.5 rounded-full px-1 py-1.5 text-[10px] font-medium",
+                    "flex min-w-0 flex-col items-center gap-1 rounded-full px-0.5 py-1 text-[10px] leading-none font-medium",
                     active ? "text-trocar-mint" : "text-white/70",
                   )}
                 >
-                  <Icon className="size-4" aria-hidden />
-                  {tab.label}
+                  {prominent ? (
+                    <span className="relative h-5 w-full">
+                      <span
+                        className={cn(
+                          "trocar-glass-mint trocar-grain absolute bottom-0 left-1/2 flex size-12 -translate-x-1/2 items-center justify-center rounded-full text-trocar-ink",
+                          active && "ring-2 ring-white",
+                        )}
+                      >
+                        <Icon className="size-6" aria-hidden />
+                      </span>
+                    </span>
+                  ) : (
+                    <Icon className="size-5" aria-hidden />
+                  )}
+                  <span className="max-w-full truncate">{tab.label}</span>
                 </Link>
               );
             })}

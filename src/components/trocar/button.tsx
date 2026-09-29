@@ -14,9 +14,9 @@ type TrocarButtonProps = {
 
 const variants = {
   primary:
-    "bg-trocar-mint text-trocar-ink shadow-[0_10px_24px_-14px_rgba(14,58,44,0.8)] hover:brightness-95 disabled:opacity-50",
+    "trocar-glass-mint trocar-grain relative text-trocar-ink hover:brightness-95 disabled:opacity-50",
   secondary:
-    "border border-trocar-ink/15 bg-white text-trocar-ink hover:border-trocar-ink/30 disabled:opacity-50",
+    "trocar-glass-light trocar-grain relative text-trocar-ink hover:brightness-105 disabled:opacity-50",
   ghost: "text-trocar-mute hover:text-trocar-ink disabled:opacity-50",
 } as const;
 

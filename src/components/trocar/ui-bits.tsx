@@ -77,7 +77,7 @@ export function SegmentedTabs<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div className="flex gap-1 rounded-full bg-white p-1 shadow-[0_10px_24px_-20px_rgba(14,58,44,0.7)]">
+    <div className="trocar-glass-light trocar-grain relative flex gap-1 rounded-full p-1">
       {options.map((option) => (
         <button
           key={option.id}
@@ -86,7 +86,7 @@ export function SegmentedTabs<T extends string>({
           className={cn(
             "flex-1 rounded-full px-3 py-2 text-sm font-semibold",
             value === option.id
-              ? "bg-trocar-ink text-white"
+              ? "trocar-glass trocar-grain relative text-white"
               : "text-trocar-mute",
           )}
         >
