@@ -5,16 +5,44 @@ import { CheckCircle2, Home, Shield } from "lucide-react";
 import { auth } from "@/auth";
 import { AuthButtons } from "@/components/shared/auth-buttons";
 import { APP_NAME, ROUTES } from "@/constants/routes";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function DashboardPage() {
   const session = await auth();
+  let supabaseDisplayName: string | null = null;
+  let supabaseEmail: string | null = null;
+  let hasSupabaseSession = false;
 
-  if (!session?.user) {
+  if (isSupabaseConfigured()) {
+    const supabase = await createClient();
+    const { data: claimsData } = await supabase.auth.getClaims();
+    hasSupabaseSession = Boolean(claimsData?.claims);
+
+    if (hasSupabaseSession) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const fullName = user?.user_metadata?.full_name;
+      supabaseDisplayName =
+        typeof fullName === "string" && fullName.trim().length > 0
+          ? fullName
+          : (user?.email ?? "cuenta");
+      supabaseEmail = user?.email ?? null;
+    }
+  }
+
+  if (!session?.user && !hasSupabaseSession) {
     redirect(ROUTES.login);
   }
 
-  const { name, email, image } = session.user;
-  const displayName = name ?? email ?? "cuenta";
+  const { name, email, image } = session?.user ?? {};
+  const displayName = name ?? supabaseDisplayName ?? email ?? supabaseEmail ?? "cuenta";
+  const secondaryEmail =
+    email && name ? email : supabaseEmail && supabaseDisplayName !== supabaseEmail
+      ? supabaseEmail
+      : null;
+  const authProvider = session?.user ? "GitHub OAuth" : "Supabase Auth";
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 px-6 py-16">
@@ -54,8 +82,8 @@ export default async function DashboardPage() {
         <div>
           <p className="text-sm text-zinc-500">Sesión iniciada</p>
           <p className="text-xl font-medium">{displayName}</p>
-          {email && name ? (
-            <p className="text-sm text-zinc-500">{email}</p>
+          {secondaryEmail ? (
+            <p className="text-sm text-zinc-500">{secondaryEmail}</p>
           ) : null}
         </div>
       </section>
@@ -64,10 +92,10 @@ export default async function DashboardPage() {
         <article className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
           <div className="mb-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 className="size-5" aria-hidden />
-            <h2 className="font-medium">GitHub OAuth</h2>
+            <h2 className="font-medium">{authProvider}</h2>
           </div>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Autenticación con GitHub activa. Ya puedes usar rutas privadas.
+            Autenticación activa. Ya puedes usar rutas privadas.
           </p>
         </article>
         <article className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
@@ -76,8 +104,7 @@ export default async function DashboardPage() {
             <h2 className="font-medium">Ruta privada</h2>
           </div>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Solo usuarios con sesión ven este panel. El siguiente paso es conectar
-            PostgreSQL para guardar posts y usuarios.
+            Solo usuarios con sesión de Auth.js o Supabase ven este panel.
           </p>
         </article>
       </section>

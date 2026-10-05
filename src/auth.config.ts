@@ -16,14 +16,8 @@ export const authConfig = {
   },
   providers: [GitHub],
   callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = Boolean(auth?.user);
-      const isOnDashboard = nextUrl.pathname.startsWith("/dashboard");
-
-      if (isOnDashboard) {
-        return isLoggedIn;
-      }
-
+    authorized() {
+      // El middleware combina Auth.js y Supabase Auth.
       return true;
     },
     jwt({ token, user }) {
