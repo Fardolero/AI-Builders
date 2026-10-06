@@ -11,7 +11,6 @@ import { LandingFaq } from "@/components/trocar/landing-faq";
 import { LandingPostCard } from "@/components/trocar/landing-post-card";
 import { TrocarButton } from "@/components/trocar/button";
 import { APP_NAME, ROUTES } from "@/constants/routes";
-import { createClient } from "@/lib/supabase/server";
 import { MOCK_POSTS } from "@/lib/trocar/mock-posts";
 import { getCurrentUserAndProfile } from "@/lib/trocar/profile";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -39,15 +38,16 @@ const HOW_IT_WORKS = [
 ] as const;
 
 export default async function HomePage() {
-  const { user, profile } = isSupabaseConfigured()
+  const session = isSupabaseConfigured()
     ? await getCurrentUserAndProfile()
-    : { user: null, profile: null };
+    : null;
+  const user = session?.user ?? null;
+  const profile = session?.profile ?? null;
 
   let posts: PostCardData[] = [];
 
-  if (isSupabaseConfigured()) {
-    const supabase = await createClient();
-    const { data } = await supabase
+  if (session) {
+    const { data } = await session.supabase
       .from("posts")
       .select(
         "id, kind, title, description, looking_for, barrio, status, created_at",
