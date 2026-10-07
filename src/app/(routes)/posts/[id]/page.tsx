@@ -73,11 +73,6 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
       ? Math.min(5, Math.max(0, rounded))
       : null;
 
-  const filledStars =
-    rounded !== null && Number.isFinite(rounded)
-      ? Math.min(5, Math.max(0, rounded))
-      : null;
-
   return (
     <TrocarShell
       rightSlot={
