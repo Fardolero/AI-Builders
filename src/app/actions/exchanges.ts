@@ -525,9 +525,16 @@ export async function confirmExchangeAction(
       redirect(ROUTES.exchangeRate(exchangeId));
     }
 
-    await supabase.rpc("award_exchange_credits", {
-      p_exchange_id: exchangeId,
-    });
+    const { data: awardedCredits } = await supabase.rpc(
+      "award_exchange_credits",
+      { p_exchange_id: exchangeId },
+    );
+    const creditAmount =
+      typeof awardedCredits === "number" ? awardedCredits : null;
+    const completedBody =
+      creditAmount !== null && creditAmount > 0
+        ? `Sumaste +${creditAmount} Créditos Vecinales. Calificá al vecino.`
+        : "El trueque quedó concretado. Calificá al vecino.";
 
     const offerPostId =
       "offer_post_id" in completed && typeof completed.offer_post_id === "string"
@@ -552,7 +559,7 @@ export async function confirmExchangeAction(
       confirmed.proposer_id,
       "completed",
       "Trueque concretado",
-      "Sumaste +10 Créditos Vecinales. Calificá al vecino.",
+      completedBody,
       ROUTES.exchangeRate(exchangeId),
     );
     await notify(
@@ -560,7 +567,7 @@ export async function confirmExchangeAction(
       confirmed.owner_id,
       "completed",
       "Trueque concretado",
-      "Sumaste +10 Créditos Vecinales. Calificá al vecino.",
+      completedBody,
       ROUTES.exchangeRate(exchangeId),
     );
 

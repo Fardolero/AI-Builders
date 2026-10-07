@@ -64,7 +64,13 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
   const ratingCount = authorRatings.length;
   const ratingAvg =
     ratingCount > 0
-      ? authorRatings.reduce((sum, row) => sum + row.stars, 0) / ratingCount
+      ? authorRatings.reduce((sum, row) => sum + Number(row.stars), 0) /
+        ratingCount
+      : null;
+  const rounded = ratingAvg === null ? null : Math.round(ratingAvg);
+  const filledStars =
+    rounded !== null && Number.isFinite(rounded)
+      ? Math.min(5, Math.max(0, rounded))
       : null;
 
   return (
@@ -78,7 +84,7 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
             href={user ? ROUTES.feed : ROUTES.home}
             className="text-sm text-white/80 hover:text-white"
           >
-            {user ? "Inicio" : "Inicio"}
+            {user ? "Inicio" : "Volver"}
           </Link>
         </div>
       }
@@ -164,10 +170,10 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
             {author?.full_name ?? "Vecino"}
           </Link>
           <div className="flex flex-wrap items-center gap-2">
-            {ratingAvg !== null ? (
+            {filledStars !== null ? (
               <span className="text-sm text-trocar-mute">
-                {"★".repeat(Math.round(ratingAvg))}
-                {"☆".repeat(5 - Math.round(ratingAvg))} · {ratingCount}
+                {"★".repeat(filledStars)}
+                {"☆".repeat(5 - filledStars)} · {ratingCount}
               </span>
             ) : (
               <span className="text-sm text-trocar-mute">
